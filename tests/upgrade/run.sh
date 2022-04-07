@@ -81,15 +81,6 @@ preamble() {
     if is_OPENSHIFT_CI; then
         # TODO RS-494 will provide the binaries
         make cli-linux upgrader
-
-        # For gradle/java, create a writeable prefs space
-        info "HOME ${HOME:-}"
-        export GRADLE_USER_HOME="${HOME}"
-        info "GRADLE_USER_HOME ${GRADLE_USER_HOME:-}"
-        mkdir -p "${HOME}/.java/.systemPrefs"
-        mkdir "${HOME}/.java/.userPrefs"
-        chmod -R 755 "${HOME}/.java"
-        export JAVA_OPTS="\"-Djava.util.prefs.systemRoot=${HOME}/.java\" \"-Djava.util.prefs.userRoot=${HOME}/.java/.userPrefs\""
     fi
 
     require_executable "$TEST_ROOT/bin/$TEST_HOST_OS/roxctl"
