@@ -69,11 +69,11 @@ type managerImpl struct {
 	queuedIndicators         map[string]*storage.ProcessIndicator
 	deploymentObservationMap map[string]*deploymentObservation
 
-	indicatorQueueLock           sync.Mutex
-	deploymentIndicatorQueueLock sync.Mutex
-	flushProcessingLock          concurrency.TransparentMutex
-	indicatorRateLimiter         *rate.Limiter
-	indicatorFlushTicker         *time.Ticker
+	indicatorQueueLock        sync.Mutex
+	deploymentObservationLock sync.Mutex
+	flushProcessingLock       concurrency.TransparentMutex
+	indicatorRateLimiter      *rate.Limiter
+	indicatorFlushTicker      *time.Ticker
 
 	policyAlertsLock          sync.RWMutex
 	removedOrDisabledPolicies set.StringSet
@@ -94,8 +94,8 @@ func (m *managerImpl) copyAndResetIndicatorQueue() map[string]*storage.ProcessIn
 }
 
 func (m *managerImpl) copyAndResetDeploymentIndicatorQueue(deploymentID string) *set.StringSet {
-	m.deploymentIndicatorQueueLock.Lock()
-	defer m.deploymentIndicatorQueueLock.Unlock()
+	m.deploymentObservationLock.Lock()
+	defer m.deploymentObservationLock.Unlock()
 
 	if _, ok := m.deploymentObservationMap[deploymentID]; !ok {
 		return nil
@@ -195,6 +195,7 @@ func (m *managerImpl) flushIndicatorQueue() {
 
 	// Group the processes into particular baseline segments
 	baselineMap := make(map[processBaselineKey][]*storage.ProcessIndicator)
+	m.deploymentObservationLock.Lock()
 	for _, indicator := range indicatorSlice {
 		// Do not add it to the baseline map if we are in the observation period for that deployment
 		if features.PostgresDatastore.Enabled() && m.deploymentObservationMap[indicator.GetDeploymentId()].inObservation {
@@ -204,6 +205,7 @@ func (m *managerImpl) flushIndicatorQueue() {
 		key := indicatorToBaselineKey(indicator)
 		baselineMap[key] = append(baselineMap[key], indicator)
 	}
+	m.deploymentObservationLock.Unlock()
 
 	for key, indicators := range baselineMap {
 		log.Infof("Calling checkAndUpdateBaseline from the normal flow for indicator %s", key.deploymentID)
@@ -221,8 +223,8 @@ func (m *managerImpl) addToQueue(indicator *storage.ProcessIndicator) {
 	log.Infof("SHREWS => addToQueue Deployment => %s", indicator.GetDeploymentId())
 
 	if features.PostgresDatastore.Enabled() {
-		m.deploymentIndicatorQueueLock.Lock()
-		defer m.deploymentIndicatorQueueLock.Unlock()
+		m.deploymentObservationLock.Lock()
+		defer m.deploymentObservationLock.Unlock()
 
 		observationMap := m.deploymentObservationMap[indicator.GetDeploymentId()]
 
@@ -332,20 +334,7 @@ func (m *managerImpl) IndicatorAdded(indicator *storage.ProcessIndicator) error 
 	metrics.ProcessFilterCounterInc("Added")
 
 	if features.PostgresDatastore.Enabled() {
-		_, found := m.deploymentObservationMap[indicator.GetDeploymentId()]
-		if !found {
-			deployTimer := time.NewTimer(env.BaselineGenerationDuration.DurationSetting())
-			m.deploymentObservationMap[indicator.GetDeploymentId()] = &deploymentObservation{inObservation: true, observationTimer: deployTimer}
-
-			go func() {
-				<-deployTimer.C
-				// Remove deployment from observation mode
-				m.deploymentObservationMap[indicator.GetDeploymentId()].inObservation = false
-				m.addBaseline(indicator.GetDeploymentId())
-				timeutil.StopTimer(deployTimer)
-				m.deploymentObservationMap[indicator.GetDeploymentId()].observationTimer = nil
-			}()
-		}
+		m.setupDeploymentObservation(indicator.GetDeploymentId())
 	}
 
 	m.addToQueue(indicator)
@@ -354,6 +343,27 @@ func (m *managerImpl) IndicatorAdded(indicator *storage.ProcessIndicator) error 
 		go m.flushIndicatorQueue()
 	}
 	return nil
+}
+
+func (m *managerImpl) setupDeploymentObservation(deploymentID string) {
+	m.deploymentObservationLock.Lock()
+	defer m.deploymentObservationLock.Unlock()
+
+	_, found := m.deploymentObservationMap[deploymentID]
+	if !found {
+		deployTimer := time.NewTimer(env.BaselineGenerationDuration.DurationSetting())
+		m.deploymentObservationMap[deploymentID] = &deploymentObservation{inObservation: true, observationTimer: deployTimer}
+		go func() {
+			<-deployTimer.C
+			// Remove deployment from observation mode
+			m.deploymentObservationLock.Lock()
+			defer m.deploymentObservationLock.Unlock()
+			m.deploymentObservationMap[deploymentID].inObservation = false
+			m.addBaseline(deploymentID)
+			timeutil.StopTimer(deployTimer)
+			m.deploymentObservationMap[deploymentID].observationTimer = nil
+		}()
+	}
 }
 
 func (m *managerImpl) filterOutDisabledPolicies(alerts *[]*storage.Alert) {
@@ -449,6 +459,9 @@ func (m *managerImpl) DeploymentRemoved(deploymentID string) error {
 	_, err := m.alertManager.AlertAndNotify(lifecycleMgrCtx, nil, alertmanager.WithDeploymentID(deploymentID, true))
 
 	if features.PostgresDatastore.Enabled() {
+		m.deploymentObservationLock.Lock()
+		defer m.deploymentObservationLock.Unlock()
+
 		if deployMap, ok := m.deploymentObservationMap[deploymentID]; ok {
 			if deployMap.observationTimer != nil {
 				timeutil.StopTimer(deployMap.observationTimer)

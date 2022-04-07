@@ -94,9 +94,13 @@ func (suite *ManagerTestSuite) TestBaselineNotFound() {
 	envIsolator.Setenv(env.BaselineGenerationDuration.EnvVar(), time.Millisecond.String())
 	key, indicator := makeIndicator()
 	elements := fixtures.MakeBaselineItems(indicator.GetSignal().GetExecFilePath())
+	log.Info("a")
 	suite.baselines.EXPECT().GetProcessBaseline(gomock.Any(), key).Return(nil, false, nil)
-	suite.baselines.EXPECT().UpsertProcessBaseline(gomock.Any(), key, elements, true).Return(nil, nil)
+	log.Info("b")
+	suite.baselines.EXPECT().UpsertProcessBaseline(gomock.Any(), key, elements, true, false).Return(nil, nil)
+	log.Info("c")
 	_, err := suite.manager.checkAndUpdateBaseline(indicatorToBaselineKey(indicator), []*storage.ProcessIndicator{indicator})
+	log.Info("1")
 	suite.NoError(err)
 	suite.mockCtrl.Finish()
 
@@ -104,13 +108,15 @@ func (suite *ManagerTestSuite) TestBaselineNotFound() {
 	expectedError := errors.New("Expected error")
 	suite.baselines.EXPECT().GetProcessBaseline(gomock.Any(), key).Return(nil, false, expectedError)
 	_, err = suite.manager.checkAndUpdateBaseline(indicatorToBaselineKey(indicator), []*storage.ProcessIndicator{indicator})
+	log.Info("2")
 	suite.Equal(expectedError, err)
 	suite.mockCtrl.Finish()
 
 	suite.mockCtrl = gomock.NewController(suite.T())
 	suite.baselines.EXPECT().GetProcessBaseline(gomock.Any(), key).Return(nil, false, nil)
-	suite.baselines.EXPECT().UpsertProcessBaseline(gomock.Any(), key, elements, true).Return(nil, expectedError)
+	suite.baselines.EXPECT().UpsertProcessBaseline(gomock.Any(), key, elements, true, true).Return(nil, expectedError)
 	_, err = suite.manager.checkAndUpdateBaseline(indicatorToBaselineKey(indicator), []*storage.ProcessIndicator{indicator})
+	log.Info("3")
 	suite.Equal(expectedError, err)
 }
 
