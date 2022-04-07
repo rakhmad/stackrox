@@ -158,3 +158,9 @@ task runSampleScript(dependsOn: 'classes', type: JavaExec) {
         classpath = sourceSets.main.runtimeClasspath
     }
 }
+
+if (System.getenv("OPENSHIFT_CI")) {
+    println "Env HOME: " + System.getenv("HOME")
+    println "Property user.home: " + System.getProperty("user.home")
+    println "Property java.util.prefs.userRoot: " + System.getProperty("java.util.prefs.userRoot")
+}
