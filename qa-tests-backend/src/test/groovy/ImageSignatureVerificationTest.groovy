@@ -36,7 +36,7 @@ class ImageSignatureVerificationTest extends BaseSpecification {
             DISTROLESS,
             TEKTON,
             UNVERIFIABLE,
-            DISTROLESS_AND_TEKTON
+            DISTROLESS_AND_TEKTON,
     ]
 
     // Public keys used within signature integrations.
@@ -154,7 +154,6 @@ w9e2Azq1OYIh/pbeBMHARDrBaqqmuMR9+BfAaPAYdkNTU6f58M2zBbuL0A==
         )
         assert distrolessAndTektonSignatureIntegrationID
         CREATED_SIGNATURE_INTEGRATIONS.put(DISTROLESS_AND_TEKTON, distrolessAndTektonSignatureIntegrationID)
-
 
         // Create all required deployments.
         orchestrator.batchCreateDeployments(DEPLOYMENTS)
