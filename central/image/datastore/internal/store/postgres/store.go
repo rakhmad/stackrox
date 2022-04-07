@@ -746,8 +746,11 @@ func (s *storeImpl) copyFrom(ctx context.Context, objs ...*storage.Image) error 
 
 func (s *storeImpl) isUpdated(ctx context.Context, image *storage.Image) (bool, bool, error) {
 	oldImage, found, err := s.Get(ctx, image.GetId())
-	if err != nil || !found {
+	if err != nil {
 		return false, false, err
+	}
+	if !found {
+		return true, true, nil
 	}
 
 	metadataUpdated := false
