@@ -75,9 +75,6 @@ preamble() {
         die "Only linux or darwin are supported for this test"
     fi
 
-    info "BASH_ENV: ${BASH_ENV:-}"
-    info "JAVA_OPTS: ${JAVA_OPTS:-}"
-
     if is_OPENSHIFT_CI; then
         # TODO RS-494 will provide the binaries
         make cli-linux upgrader
@@ -392,9 +389,6 @@ test_upgrade_paths() {
 
     wait_for_central_reconciliation
 
-    info "BASH_ENV: ${BASH_ENV:-}"
-    info "JAVA_OPTS: ${JAVA_OPTS:-}"
-
     info "Running smoke tests"
     CLUSTER="$CLUSTER_TYPE_FOR_TEST" make -C qa-tests-backend smoke-test
 
@@ -430,9 +424,6 @@ validate_upgrade() {
     local policies_dir="../pkg/defaults/policies/files"
 
     info "Validating the upgrade with upgrade tests: $stage"
-
-    info "BASH_ENV: ${BASH_ENV:-}"
-    info "JAVA_OPTS: ${JAVA_OPTS:-}"
 
     CLUSTER="$CLUSTER_TYPE_FOR_TEST" \
         UPGRADE_CLUSTER_ID="$upgrade_cluster_id" \

@@ -11,9 +11,6 @@ done
 
 openshift_ci_mods
 
-info "BASH_ENV: ${BASH_ENV:-}"
-info "JAVA_OPTS: ${JAVA_OPTS:-}"
-
 if pr_has_label "delay-tests"; then
     function hold() {
         info "Holding on for debug"
