@@ -430,10 +430,9 @@ openshift_ci_mods() {
     export GRADLE_USER_HOME="${HOME}"
     info "GRADLE_USER_HOME ${GRADLE_USER_HOME:-}"
     set -x
-    mkdir -p "${HOME}/.java/.userPrefs"
-    chmod -R 0777 "${HOME}/.java"
-    ls -laR "${HOME}/.java"
-    ls -la "${HOME}"
+    mkdir -p "/tmp/.java/.userPrefs"
+    chmod -R 0777 "/tmp/.java"
+    ls -laR "/tmp/.java"
     set +x
 }
 

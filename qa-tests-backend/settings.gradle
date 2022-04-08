@@ -24,7 +24,7 @@ if (System.getenv("OPENSHIFT_CI")) {
     println "Property java.util.prefs.userRoot: " + System.getProperty("java.util.prefs.userRoot")
 
     if (System.getProperty("user.home") == "/") {
-        System.setProperty("user.home", System.getenv("HOME"))
+        System.setProperty("user.home", "/tmp")
         println "Set user.home: " + System.getProperty("user.home")
     }
 
